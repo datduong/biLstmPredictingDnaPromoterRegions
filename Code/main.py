@@ -16,7 +16,7 @@ import itertools
 
 from data import * 
 from model import *
-from train import *
+from train import TrainModel
 from helper import * 
 
 random.seed(89101112) # seed 
@@ -28,18 +28,22 @@ if torch.cuda.is_available():
 code_ix = { 'PADDING':0,'A':1,'T':2,'C':3,'G':4 }
 num_of_word=len(code_ix)
 
-data = pickle.load ( gzip.open("E:/eColiPromoterData/Peak_Prediction/dynamic_max_b/data_make_extra.pickle.gzip", "rb") )
+# data = pickle.load ( gzip.open("E:/eColiPromoterData/Peak_Prediction/dynamic_max_b/data_make_extra.pickle.gzip", "rb") )
+data = pickle.load ( gzip.open("C:/Users/dat/Desktop/eColiPromoterData/Peak_Prediction/data_make_extra.pickle.gzip", "rb") )
 
-num_epoch = 30
-save_path = 'E:/eColiPromoterData/Peak_Prediction/dynamic_max_b/'
+# save_path = 'E:/eColiPromoterData/Peak_Prediction/dynamic_max_b/'
+save_path = 'C:/Users/dat/Desktop/eColiPromoterData/Peak_Prediction/dynamic_max_no_feat/'
 if os.path.exists(save_path) == False: 
     os.mkdir(save_path)
 
 ## 
-is_feature = True ## use extra left/right nucleotide counting (or any other feature)
+num_epoch = 40
+
+is_feature = False ## use extra left/right nucleotide counting (or any other feature)
 feature_dim= 8
 
-batch_size = 16
+num_segment = 10 ## look at every 10-parts (not overlap), and returns the max 
+
 num_of_classes=2
 
 dropout_rate = .2
@@ -71,7 +75,11 @@ batch_dev, batch_dev_label = make_format_batch (batch_size,data.sequence_ix_dev,
 # print (batch_dev_label[0])
 
 # make model 
-model = biLSTM_maxpool ( num_of_classes,dropout_rate,True,num_of_word,word_emb_dim,lstm_hidden_dim,batch_size,feature_dim,is_feature)
+# model = biLSTM_maxpool ( num_of_classes,dropout_rate,True,num_of_word,word_emb_dim,lstm_hidden_dim,batch_size,feature_dim,is_feature)
+model = biLSTM_dynamic_maxpool ( num_of_classes,dropout_rate,True,num_of_word,word_emb_dim,lstm_hidden_dim,num_segment,batch_size,feature_dim,is_feature)
+# model.cuda() 
+# y = model.forward( batch_train[0]['seq_tensor'], batch_train[0]['seq_lengths'], batch_train[0]['seq_feature'] )
+# print (F.softmax(y,dim=1) )
 
 # train model 
 train_model = TrainModel (model,num_of_classes,num_epoch,save_path,batch_size,True)

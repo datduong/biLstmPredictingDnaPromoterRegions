@@ -20,14 +20,14 @@ from model import *
 
 
 class TrainModel (object):
-    def __init__(self,model,num_diagnosis,num_epoch,save_path,batch_size,doCuda=True,lr=.01):
+    def __init__(self,model,num_diagnosis,num_epoch,save_path,batch_size,doCuda=True,lr=.1):
 
         self.batch_size = batch_size
         self.model = model
         self.num_epoch = num_epoch
 
         self.num_diagnosis = num_diagnosis
-        self.loss_function = nn.CrossEntropyLoss( weight=torch.FloatTensor([1.5, 0.75]) )
+        self.loss_function = nn.CrossEntropyLoss( weight=torch.FloatTensor([0.75,1.5]) )
 
         self.lr = lr # learning rate. 
         # self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
@@ -74,8 +74,7 @@ class TrainModel (object):
 
         #
         # print ('total sum accuracy {}'.format(accuracy))
-        print ( 'mean accuracy {}'.format (accuracy/len(batch)))
-        return total_loss.numpy()[0]
+        return total_loss.numpy()[0],accuracy/len(batch)
 
     def trainNepoch ( self, batch_train,batch_train_label,batch_dev,batch_dev_label):
         
@@ -83,22 +82,22 @@ class TrainModel (object):
         print ('number of batch in train set {}'.format(len(batch_train)))
         print ('number of batch in dev set {}'.format(len(batch_dev)))
         
-        # reportEvery = self.num_epoch // 5
-        # if (reportEvery == 0): ## avoid division by 0 when showing each step. 
-        reportEvery = 1
-        ##
+        reportEvery = self.num_epoch // 5
+        if (reportEvery == 0): ## avoid division by 0 when showing each step. 
+            reportEvery = 1
+
         trackingLossTrain = np.array ( [np.inf] ) 
         trackingLossDev = np.array ( [np.inf] )
         for epoch in range(1,self.num_epoch+1):
 
             self.model.train()
-            print ("\n")
+            # print ("\n")
 
             start_time = time.time()
-            total_loss = self.train1epoch(batch_train,batch_train_label,True)
+            total_loss,accuracy = self.train1epoch(batch_train,batch_train_label,True)
             elapsed_time = time.time() - start_time
             if ( (epoch % reportEvery) == 0 ) | ( epoch==1) : 
-                print ('TRAINING-SET epoch {} , total loss {} , learn_rate {}, time second {} '.format(epoch,total_loss,self.lr,elapsed_time) )
+                print ('\nTRAINING-SET epoch {} , total loss {} , accuracy {} , learn_rate {} , time second {} '.format(epoch,total_loss,accuracy,self.lr,elapsed_time) )
             trackingLossTrain = np.append( trackingLossTrain, total_loss)
         
             ##
@@ -107,29 +106,27 @@ class TrainModel (object):
             self.model.eval() 
 
             start_time = time.time()
-            lossOnDevSet = self.train1epoch(batch_dev,batch_dev_label,False) 
+            lossOnDevSet,accuracy = self.train1epoch(batch_dev,batch_dev_label,False) 
             elapsed_time = time.time() - start_time
             if ( (epoch % reportEvery) == 0 ) | ( epoch==1) :
-                print('DEVELOPMENT-SET total loss {} , time second {} '.format(lossOnDevSet,elapsed_time)) 
+                print('DEVELOPMENT-SET total loss {} , accuracy {} , time second {} '.format(lossOnDevSet,accuracy,elapsed_time)) 
             trackingLossDev = np.append( trackingLossDev, lossOnDevSet)
             
             ## need to fix the learning_rate 
             if (trackingLossTrain[epoch] > trackingLossTrain[epoch-1]) | (trackingLossDev[epoch] > trackingLossDev[epoch-1]) : ## loss should be decreasing, if not... we need to decrease learn_rate  
-                self.lr = self.lr * .75
+                self.lr = self.lr * .8
                 self.optimizer.param_groups[0]['lr'] = self.lr
             else: 
-                if (epoch % 5 == 0): 
+                if (epoch % 10 == 0): 
                     self.lr = self.lr * .9
-                else:
-                    self.lr = self.lr * .995
-                self.optimizer.param_groups[0]['lr'] = self.lr
+                    self.optimizer.param_groups[0]['lr'] = self.lr
 
             # exit()
             ## https://stackoverflow.com/questions/42703500/best-way-to-save-a-trained-model-in-pytorch/49078976#49078976
             if epoch > 5: 
                 torch.save( self.model, self.save_path + 'ep{}train{}dev{}.pytorch'.format(epoch, int(total_loss) , int(lossOnDevSet) ) )
         
-            print ("\n"+"-"*10+"\n")
+            # print ("\n"+"-"*10+"\n")
         ##
         ##    
         print ( trackingLossTrain )
